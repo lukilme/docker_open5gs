@@ -1,4 +1,3 @@
-version: '3'
 services:
   nr_ue:
     image: docker_ueransim
@@ -18,9 +17,11 @@ services:
     cap_add:
       - NET_ADMIN
     privileged: true
+
     networks:
       default:
         ipv4_address: ${NR_UE_IP}
+      
 networks:
   default:
     external:

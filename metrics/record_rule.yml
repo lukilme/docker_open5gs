@@ -1,0 +1,5 @@
+groups:
+  - name: open5gs_rules
+    rules:
+      - record: fivegs_amffunction_rm_regmobfail
+        expr: default(fivegs_amffunction_rm_regmobfail, 0)

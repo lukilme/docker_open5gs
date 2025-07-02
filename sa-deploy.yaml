@@ -303,6 +303,7 @@ services:
     networks:
       default:
         ipv4_address: ${METRICS_IP}
+
   grafana:
     image: grafana/grafana:11.3.0
     container_name: grafana
@@ -328,14 +329,56 @@ services:
     networks:
       default:
         ipv4_address: ${GRAFANA_IP}
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg17
+    container_name: timescaledb
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: metrics
+    ports:
+      - "5432:5432"
+    healthcheck: # Adicione healthcheck
+      test: ["CMD-SHELL", "pg_isready -U admin -d metrics"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./timescaledb/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - timescaledb_data:/var/lib/postgresql/data
+    restart: always
+    networks:
+      default:
+        ipv4_address: ${TIMESCALEDB_IP}
+
+  telegraf:
+    build: ./telegraf  # Remove a declaração 'image'
+    container_name: telegraf
+    env_file:
+      - .env
+    volumes:
+      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - timescaledb
+      
+    networks:
+      default:
+        ipv4_address: ${TELEGRAF_IP}
+
 networks:
   default:
     name: docker_open5gs_default
     ipam:
       config:
         - subnet: ${TEST_NETWORK}
+
 volumes:
   grafana_data:
     name: grafana_data
   mongodbdata:
     name: docker_open5gs_mongodbdata
+  timescaledb_data:
+    name: timescaledb_data
