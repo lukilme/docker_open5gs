@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS metric (
     fivegs_upffunction_sm_n4sessionestabfail INT,
     softmodern_bler_dl INT,
     softmodern_bler_ul INT,
-    softmodern_rsrp INT
+    softmodern_rsrp INT,
+    pfcp_sessions_active INT
 );
 SELECT create_hypertable('metric', 'time', if_not_exists => TRUE);
