@@ -265,45 +265,6 @@ services:
     networks:
       default:
         ipv4_address: ${BSF_IP}
-  nssf:
-    image: docker_open5gs
-    depends_on:
-      - nrf
-      - scp
-      - mongo
-    container_name: nssf
-    env_file:
-      - .env
-    environment:
-      - COMPONENT_NAME=nssf
-    volumes:
-      - ./nssf:/mnt/nssf
-      - ./log:/open5gs/install/var/log/open5gs
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
-    expose:
-      - "7777/tcp"
-    networks:
-      default:
-        ipv4_address: ${NSSF_IP}
-  metrics:
-    build: ./metrics
-    image: docker_metrics
-    container_name: metrics
-    env_file:
-      - .env
-    volumes:
-      - ./metrics:/mnt/metrics
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
-    expose:
-      - "9090/tcp"
-    ports:
-      - "9090:9090/tcp"
-    networks:
-      default:
-        ipv4_address: ${METRICS_IP}
-
   grafana:
     image: grafana/grafana:11.3.0
     container_name: grafana
@@ -329,6 +290,47 @@ services:
     networks:
       default:
         ipv4_address: ${GRAFANA_IP}
+
+  nssf:
+    image: docker_open5gs
+    depends_on:
+      - nrf
+      - scp
+      - mongo
+    container_name: nssf
+    env_file:
+      - .env
+    environment:
+      - COMPONENT_NAME=nssf
+    volumes:
+      - ./nssf:/mnt/nssf
+      - ./log:/open5gs/install/var/log/open5gs
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    expose:
+      - "7777/tcp"
+    networks:
+      default:
+        ipv4_address: ${NSSF_IP}
+
+  metrics:
+    build: ./metrics
+    image: docker_metrics
+    container_name: metrics
+    env_file:
+      - .env
+    volumes:
+      - ./metrics:/mnt/metrics
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    expose:
+      - "9090/tcp"
+    ports:
+      - "9090:9090/tcp"
+    networks:
+      default:
+        ipv4_address: ${METRICS_IP}
+
 
   timescaledb:
     image: timescale/timescaledb:latest-pg17
@@ -362,11 +364,54 @@ services:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     depends_on:
-      - timescaledb
-      
+      - kafka
     networks:
       default:
         ipv4_address: ${TELEGRAF_IP}
+    
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      default:
+        ipv4_address: ${ZOOKEEPER_IP}
+
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      default:
+        ipv4_address: ${KAFKA_IP}
+
+  consumer:
+    container_name: consumer
+    build:
+      context: ./consumer
+    environment:
+      DB_HOST: ${TIMESCALEDB_IP}
+      DB_PORT: 5432
+      DB_NAME: metrics
+      DB_USER: admin
+      DB_PASS: admin123
+      KAFKA_BROKER: kafka:9092 
+      KAFKA_TOPIC: prometheus_metrics
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      kafka:
+        condition: service_started
 
 networks:
   default:
