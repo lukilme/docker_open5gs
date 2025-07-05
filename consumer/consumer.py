@@ -94,7 +94,7 @@ ALL_METRICS = [
 
 
 for message in consumer:
-    print(f"Mensagem recebida: {message.value}")
+    # print(f"Mensagem recebida: {message.value}")
     try:
         metric = json.loads(message.value)
 
