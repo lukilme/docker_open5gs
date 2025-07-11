@@ -4,3 +4,5 @@ log/
 **/*.db
 **/*.db-shm
 **/*.db-wal
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
