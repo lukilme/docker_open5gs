@@ -1,18 +1,18 @@
 import os
-from kafka import KafkaConsumer
 import json
-import psycopg2
-from datetime import datetime
 import time
+from kafka import KafkaConsumer
+from datetime import datetime
 import psycopg2
-import os
 
-import os
-import json
-import time
-from kafka import KafkaConsumer
-from datetime import datetime
-import psycopg2
+# Cores ANSI para logs
+class Color:
+    RED = '\033[91m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    CYAN = '\033[96m'
+    RESET = '\033[0m'
 
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = os.getenv("DB_PORT", 5432)
@@ -32,18 +32,15 @@ def wait_for_postgres(max_retries=10, delay=5):
                 host=DB_HOST,
                 port=DB_PORT
             )
-            print("Conectado ao PostgreSQL")
+            print(Color.GREEN + "Conectado ao PostgreSQL" + Color.RESET)
             return conn
         except psycopg2.OperationalError as e:
-            print(f"ostgreSQL ainda não disponível ({attempt+1}/{max_retries}): {e}")
+            print(Color.YELLOW + f"PostgreSQL ainda não disponível ({attempt+1}/{max_retries}): {e}" + Color.RESET)
             time.sleep(delay)
     raise Exception("Falha ao conectar ao PostgreSQL após várias tentativas")
 
-conn = wait_for_postgres()
-cursor = conn.cursor()
-
 def wait_for_kafka(broker, topic, timeout=60):
-    print(f"Conectando ao Kafka em {broker}, tópico {topic}")
+    print(Color.CYAN + f"Conectando ao Kafka em {broker}, tópico {topic}" + Color.RESET)
     start = time.time()
     while time.time() - start < timeout:
         try:
@@ -53,13 +50,15 @@ def wait_for_kafka(broker, topic, timeout=60):
                 consumer_timeout_ms=3000
             )
             test_consumer.close()
-            print("Kafka disponível!")
+            print(Color.GREEN + "Kafka disponível!" + Color.RESET)
             return
         except:
-            print("Aguardando Kafka...")
+            print(Color.YELLOW + "Aguardando Kafka..." + Color.RESET)
             time.sleep(2)
     raise Exception("Kafka não respondeu a tempo.")
 
+conn = wait_for_postgres()
+cursor = conn.cursor()
 wait_for_kafka(KAFKA_BROKER, KAFKA_TOPIC)
 
 consumer = KafkaConsumer(
@@ -70,6 +69,7 @@ consumer = KafkaConsumer(
     group_id='metrics-group',
     value_deserializer=lambda x: x.decode('utf-8')
 )
+
 ALL_METRICS = [
     "fivegs_amffunction_rm_registeredsubnbr",
     "fivegs_amffunction_rm_regmobreq",
@@ -92,9 +92,10 @@ ALL_METRICS = [
     "pfcp_sessions_active"
 ]
 
+message_count = 0
 
 for message in consumer:
-    # print(f"Mensagem recebida: {message.value}")
+    message_count += 1
     try:
         metric = json.loads(message.value)
 
@@ -132,16 +133,12 @@ for message in consumer:
             sql = f"INSERT INTO metric ({columns}) VALUES ({placeholders})"
             cursor.execute(sql, values)
         else:
-            sql = f"""
-            UPDATE metric
-            SET {name} = %s
-            WHERE time = %s
-            """
+            sql = f"UPDATE metric SET {name} = %s WHERE time = %s"
             cursor.execute(sql, (value, ts))  
 
         conn.commit()
-        print(f"{name} @ {ts} → {value}")
+        print(f"{Color.BLUE}[{message_count:05}]{Color.GREEN} {name} @ {ts} → {value}{Color.RESET}")
 
     except Exception as e:
         conn.rollback()
-        print(f"Erro: {e}")
+        print(f"{Color.RED}[{message_count:05}] ❌ Erro ao processar mensagem: {e}{Color.RESET}")

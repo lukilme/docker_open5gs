@@ -357,6 +357,7 @@ services:
   telegraf:
     build: ./telegraf
     container_name: telegraf
+    restart: always
     env_file:
       - .env
     volumes:
@@ -364,7 +365,7 @@ services:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     depends_on:
-      kafka:
+      metrics:
         condition: service_started
     networks:
       default:
